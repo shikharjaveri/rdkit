@@ -73,6 +73,10 @@ RDKIT_SMILESPARSE_EXPORT std::unique_ptr<RDKit::RWMol> MolFromSmarts(
     const std::string &sma,
     const SmartsParserParams &params = SmartsParserParams());
 
+RDKIT_SMILESPARSE_EXPORT std::unique_ptr<RDKit::RWMol> MolFromSmilesAstro(
+    const std::string &smi,
+    const SmilesParserParams &params = SmilesParserParams());
+
 RDKIT_SMILESPARSE_EXPORT std::unique_ptr<RDKit::Atom> AtomFromSmiles(
     const std::string &smi);
 RDKIT_SMILESPARSE_EXPORT std::unique_ptr<RDKit::Bond> BondFromSmiles(
@@ -186,6 +190,40 @@ inline RWMol *SmilesToMol(
   return RDKit::v2::SmilesParse::MolFromSmiles(smi, params).release();
 };
 
+//! Construct an astrochemical molecule from a SMILES string
+/*!
+ \param smi           the SMILES to convert
+ \param debugParse    toggles verbose debugging information from the parser
+ \param sanitize      toggles H removal and custom astrochemical sanitization of
+ the molecule
+ \param replacements  a string->string map of replacement strings. See
+ SmilesToMol for more information about replacements.
+
+ \return a pointer to the new molecule; the caller is responsible for free'ing
+ this.
+
+ This function uses a custom sanitization approach that's more suitable for
+ astrochemical molecules with unusual valence states that would normally fail
+ standard sanitization.
+ */
+inline RWMol *SmilesToAstroMol(
+    const std::string &smi, int debugParse = 0, bool sanitize = true,
+    std::map<std::string, std::string> *replacements = nullptr) {
+  RDKit::v2::SmilesParse::SmilesParserParams params;
+  params.debugParse = debugParse;
+  if (replacements) {
+    params.replacements = *replacements;
+  }
+  if (sanitize) {
+    params.sanitize = true;
+    params.removeHs = true;
+  } else {
+    params.sanitize = false;
+    params.removeHs = false;
+  }
+  return RDKit::v2::SmilesParse::MolFromSmilesAstro(smi, params).release();
+};
+
 inline RWMol *SmartsToMol(const std::string &sma,
                           const SmartsParserParams &ps) {
   RDKit::v2::SmilesParse::SmartsParserParams v2ps;
@@ -247,6 +285,16 @@ inline std::unique_ptr<RDKit::RWMol> operator"" _smarts(const char *text,
                                                         size_t len) {
   std::string smi(text, len);
   return v2::SmilesParse::MolFromSmarts(smi);
+}
+
+inline std::unique_ptr<RDKit::RWMol> operator"" _astrochemical(const char *text,
+                                                               size_t len) {
+  std::string smi(text, len);
+  try {
+    return v2::SmilesParse::MolFromSmilesAstro(smi);
+  } catch (const RDKit::MolSanitizeException &) {
+    return nullptr;
+  }
 }
 
 }  // namespace RDKit

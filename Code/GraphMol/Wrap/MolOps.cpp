@@ -1116,6 +1116,7 @@ struct molops_wrapper {
         .value("SANITIZE_CLEANUP_ORGANOMETALLICS",
                MolOps::SANITIZE_CLEANUP_ORGANOMETALLICS)
         .value("SANITIZE_ALL", MolOps::SANITIZE_ALL)
+        .value("ASTROCHEMICAL_SANITIZE", MolOps::ASTROCHEMICAL_SANITIZE)
         .export_values();
     ;
 
@@ -1188,6 +1189,23 @@ struct molops_wrapper {
         (python::arg("mol"), python::arg("sanitizeOps") = MolOps::SANITIZE_ALL,
          python::arg("catchErrors") = false),
         docString.c_str());
+
+    docString =
+        "Alternative sanitization approach for astrochemical molecules with non-standard valences.\n\
+\n\
+  ARGUMENTS:\n\
+\n\
+    - mol: the molecule to be sanitized\n\
+\n\
+  NOTES:\n\
+\n\
+    - Uses a relaxed sanitization protocol that skips strict valence checking,\n\
+      radical assignment, and other operations that would normally cause astrochemical\n\
+      molecules to fail. This allows RDKit to process structures with unusual valence\n\
+      states that are found in space chemistry.\n\
+\n";
+    python::def("SanitizeAstroMol", sanitizeAstroMolPy, python::arg("mol"),
+                docString.c_str());
 
     // ------------------------------------------------------------------------
     docString =
@@ -3319,6 +3337,16 @@ enantiomer" or "OR enantiomer". CIP labels, if present, are removed.
         "returns whether or not the atom is involved in a conjugated bond");
   }
 };
+
+void sanitizeAstroMolPy(ROMol &mol) {
+  auto &wmol = static_cast<RWMol &>(mol);
+  MolOps::sanitizeAstroMol(wmol);
+}
+
+RWMol *getEditable(const ROMol &mol) {
+  auto *res = new RWMol(mol, false);
+  return res;
+}
 }  // namespace RDKit
 
 void wrap_molops() { RDKit::molops_wrapper::wrap(); }

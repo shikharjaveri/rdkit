@@ -621,6 +621,19 @@ void sanitizeMol(RWMol &mol, unsigned int &operationThatFailed,
   operationThatFailed = 0;
 }
 
+void sanitizeAstroMol(RWMol &mol) {
+  unsigned int failedOp = 0;
+
+  // Set properties without applying strict valence rules
+  mol.updatePropertyCache(false);
+
+  // Apply the astrochemical sanitization (relaxed requirements)
+  sanitizeMol(mol, failedOp, ASTROCHEMICAL_SANITIZE);
+
+  // Ensure property cache is updated even if properties step was skipped
+  mol.updatePropertyCache(false);
+}
+
 std::vector<std::unique_ptr<MolSanitizeException>> detectChemistryProblems(
     const ROMol &imol, unsigned int sanitizeOps) {
   RWMol mol(imol);

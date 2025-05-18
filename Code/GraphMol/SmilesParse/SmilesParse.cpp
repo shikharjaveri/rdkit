@@ -182,7 +182,11 @@ int smiles_parse(const std::string &inp, std::vector<RDKit::RWMol *> &molVect) {
   return smiles_parse_helper(inp, molVect, atom, bond, start_tok);
 }
 
-typedef enum { BASE = 0, BRANCH, RECURSE } SmaState;
+typedef enum {
+  BASE = 0,
+  BRANCH,
+  RECURSE
+} SmaState;
 
 std::string labelRecursivePatterns(const std::string &sma) {
 #ifndef NO_AUTOMATIC_SMARTS_RELABELLING
@@ -566,6 +570,127 @@ std::unique_ptr<RWMol> MolFromSmarts(const std::string &smarts,
       MolOps::mergeQueryHs(*res);
     }
     MolOps::setBondStereoFromDirections(*res);
+    if (!params.skipCleanup) {
+      SmilesParseOps::CleanupAfterParsing(res.get());
+    }
+    if (!name.empty()) {
+      res->setProp(common_properties::_Name, name);
+    }
+  }
+  return res;
+};
+
+std::unique_ptr<RWMol> MolFromSmilesAstro(const std::string &smiles,
+                                          const SmilesParserParams &params) {
+  // Calling MolFromSmilesAstro in a multithreaded context is generally safe
+  // *unless* the value of debugParse is different for different threads. The if
+  // statement below avoids a TSAN warning in the case where multiple threads
+  // all use the same value for debugParse.
+  if (yysmiles_debug != params.debugParse) {
+    yysmiles_debug = params.debugParse;
+  }
+
+  std::string lsmiles, name, cxPart;
+  preprocessSmiles(smiles, params, lsmiles, name, cxPart);
+  // strip any leading/trailing whitespace:
+  // boost::trim_if(smi,boost::is_any_of(" \t\r\n"));
+  auto res = toMol(lsmiles, smiles_parse, lsmiles);
+  if (!res) {
+    return res;
+  }
+  handleCXPartAndName(res.get(), params, cxPart, name);
+
+  // get a conformer
+  const Conformer *conf = nullptr, *conf3d = nullptr;
+  if (res && res->getNumConformers() > 0) {
+    for (unsigned int confId = 0; confId < res->getNumConformers(); ++confId) {
+      auto *testConf = &res->getConformer(confId);
+      if (!testConf->is3D()) {
+        if (conf == nullptr) {  // only take the first 2d conf
+          conf = testConf;
+        }
+      } else {
+        if (conf3d == nullptr) {  // only take the first 3d conf
+          conf3d = testConf;
+        }
+      }
+      if (conf != nullptr && conf3d != nullptr) {
+        break;
+      }
+    }
+  }
+
+  if (res->hasProp(SmilesParseOps::detail::_needsDetectAtomStereo)) {
+    // we encountered a wedged bond in the CXSMILES,
+    // these need to be handled the same way they were in mol files
+    res->clearProp(SmilesParseOps::detail::_needsDetectAtomStereo);
+
+    if (conf) {
+      MolOps::assignChiralTypesFromBondDirs(*res, conf->getId());
+    }
+  }
+
+  // if we read a 3D conformer, set the stereo:
+  // if (res->getNumConformers() && res->getConformer().is3D()) {
+  if (!conf && conf3d) {
+    res->updatePropertyCache(false);
+    MolOps::assignChiralTypesFrom3D(*res, conf3d->getId(), true);
+  }
+
+  if (conf) {
+    Atropisomers::detectAtropisomerChirality(*res, conf);
+  } else if (conf3d) {
+    Atropisomers::detectAtropisomerChirality(*res, conf3d);
+  } else {
+    Atropisomers::detectAtropisomerChirality(*res, nullptr);
+  }
+
+  if (res && (params.sanitize || params.removeHs)) {
+    // For astrochemical molecules, use our custom sanitization
+    if (params.sanitize) {
+      MolOps::sanitizeAstroMol(*res);
+    }
+
+    if (params.removeHs) {
+      MolOps::RemoveHsParameters rhp;
+      rhp.updateExplicitCount = true;
+      MolOps::removeHs(*res, rhp,
+                       false);  // Don't sanitize again when removing Hs
+    }
+
+    if (res->hasProp(SmilesParseOps::detail::_needsDetectBondStereo)) {
+      // we encountered either wiggly bond in the CXSMILES,
+      // these need to be handled the same way they were in mol files
+      if (conf || conf3d) {
+        MolOps::clearSingleBondDirFlags(*res);
+      }
+      MolOps::setDoubleBondNeighborDirections(*res, conf ? conf : conf3d);
+    }
+    res->clearProp(SmilesParseOps::detail::_needsDetectBondStereo);
+
+    // figure out stereochemistry:
+    bool cleanIt = true, force = true, flagPossible = true;
+    MolOps::assignStereochemistry(*res, cleanIt, force, flagPossible);
+  } else {
+    //  we still need to do something about double bond stereochemistry
+    //  (was github issue 337)
+    //  now that atom stereochem has been perceived, the wedging
+    //  information is no longer needed, so we clear
+    //  single bond dir flags:
+    MolOps::clearSingleBondDirFlags(*res, true);
+  }
+
+  if (res && res->hasProp(common_properties::_NeedsQueryScan)) {
+    res->clearProp(common_properties::_NeedsQueryScan);
+    if (!params.sanitize) {
+      // we know that this can be the ring bond query, do ring perception if we
+      // need to:
+      MolOps::fastFindRings(*res);
+    }
+    QueryOps::completeMolQueries(res.get(), 0xDEADBEEF);
+  }
+
+  if (res) {
     if (!params.skipCleanup) {
       SmilesParseOps::CleanupAfterParsing(res.get());
     }

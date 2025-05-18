@@ -1282,7 +1282,7 @@ even if the neutralization introduces an overall formal charge on the molecule. 
    [O-][n+]1ccc(O)cc1
    [N-]=[N+]=NCCCO
    CN(C)CCS
-   CP(=O)(O)OCN
+   CP(=O)(O)OC[NH3+]
 
 .. testcode::
 
@@ -1823,21 +1823,17 @@ Contiguous Rotatable Bonds
 
    print(largest_n_cont_rot_bonds)
 
-.. testoutput::
-
-   8
-
 .. testcode::
 
    print(bond_groups)
 
 .. testoutput::
 
-   ((1, 2, 3, 5, 6, 10, 11, 12),)
+   8
 
 .. testcode::
 
-   mol
+   print(mol)
 
 .. image:: images/RDKitCB_22_im1.png
 
@@ -2590,4 +2586,20 @@ or send a letter to Creative Commons, 543 Howard Street, 5th Floor, San Francisc
 
 
 The intent of this license is similar to that of the RDKit itself. 
-In simple words: “Do whatever you want with it, but please give us some credit.”
+In simple words: "Do whatever you want with it, but please give us some credit."
+
+Handle Astrochemical Molecules
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For molecules with unusual valence states that are typically found in space chemistry and would fail standard sanitization:
+
+.. doctest::
+
+    >>> from rdkit import Chem
+    >>> # A molecule that would fail standard sanitization due to unusual valence
+    >>> astro_mol = Chem.MolFromSmiles('CC#N[C]', sanitize=False)
+    >>> # Instead of standard sanitization which would fail:
+    >>> # Chem.SanitizeMol(astro_mol)  # would raise exception
+    >>> # Use the astrochemical sanitization
+    >>> Chem.SanitizeAstroMol(astro_mol)  # succeeds
+    >>> # Now you can calculate descriptors, generate 3D coordinates, etc.

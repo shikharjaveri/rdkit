@@ -1361,6 +1361,51 @@ RDKIT_GRAPHMOL_EXPORT bool isAttachmentPoint(const Atom *atom,
 
 }  // namespace details
 
+//! flags for controlling sanitization
+const unsigned int SANITIZE_CLEANUP = 1;
+const unsigned int SANITIZE_PROPERTIES = 2;
+const unsigned int SANITIZE_SYMMRINGS = 4;
+const unsigned int SANITIZE_KEKULIZE = 8;
+const unsigned int SANITIZE_FINDRADICALS = 16;
+const unsigned int SANITIZE_SETAROMATICITY = 32;
+const unsigned int SANITIZE_SETCONJUGATION = 64;
+const unsigned int SANITIZE_SETHYBRIDIZATION = 128;
+const unsigned int SANITIZE_CLEANUPCHIRALITY = 256;
+const unsigned int SANITIZE_ADJUSTHS = 512;
+const unsigned int SANITIZE_CLEANUPATROPISOMERS = 1024;
+const unsigned int SANITIZE_CLEANUP_ORGANOMETALLICS = 2048;
+const unsigned int SANITIZE_ALL = 0xFFF;
+
+//! Custom sanitization flags for astrochemical molecules
+const unsigned int ASTROCHEMICAL_SANITIZE =
+    SANITIZE_CLEANUP | SANITIZE_SYMMRINGS | SANITIZE_SETAROMATICITY |
+    SANITIZE_SETCONJUGATION | SANITIZE_SETHYBRIDIZATION;
+
+//! \brief carries out a collection of tasks for cleaning up a molecule
+/*!
+  This function works with the RDKit's standard sanitization mechanism.
+  It's the function called when one calls Mol.sanitize() from Chem.rdmolops.
+
+  \param mol - the molecule to be cleaned
+  \param operationThatFailed - the operation that failed (if any)
+  \param sanitizeOps - the bits specify operations which are to be done
+*/
+RDKIT_GRAPHMOL_EXPORT void sanitizeMol(RWMol &mol,
+                                       unsigned int &operationThatFailed,
+                                       unsigned int sanitizeOps = SANITIZE_ALL);
+//! overload
+RDKIT_GRAPHMOL_EXPORT void sanitizeMol(RWMol &mol);
+
+//! \brief sanitizes astrochemical molecules while preserving unusual structures
+/*!
+  This function uses a relaxed sanitization protocol suitable for
+  astrochemical molecules which may have unusual valence states
+  that would not pass standard sanitization.
+
+  \param mol - the astrochemical molecule to be sanitized
+*/
+RDKIT_GRAPHMOL_EXPORT void sanitizeAstroMol(RWMol &mol);
+
 }  // namespace MolOps
 }  // namespace RDKit
 
