@@ -1,3 +1,18 @@
+# Exploring Molecular Sanitization in RDKit
+
+This repository is forked from the official RDKit project.
+
+I implemented extensions to RDKit’s molecule sanitization logic to support astrochemical molecules, along with tests and demo scripts.
+
+**My contributions relative to upstream RDKit:**  
+https://github.com/rdkit/rdkit/compare/master...shikharjaveri:Exploring-Sanitization-RDKit:explore-sanitization
+
+### What I added
+- Extended molecule sanitization rules for astrochemical species  
+- Added validation test cases  
+- Added demo scripts for astrochemical molecule handling  
+- Documented behavior and limitations
+
 # RDKit
 [![Azure build Status](https://dev.azure.com/rdkit-builds/RDKit/_apis/build/status/rdkit.rdkit?branchName=master)](https://dev.azure.com/rdkit-builds/RDKit/_build/latest?definitionId=1&branchName=master)
 [![DOI](https://zenodo.org/badge/10009991.svg)](https://zenodo.org/badge/latestdoi/10009991)
